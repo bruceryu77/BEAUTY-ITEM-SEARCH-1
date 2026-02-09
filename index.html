@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>BEAUTY ITEM SEARCH</title>
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --card: #1a1a1f;
+      --border: #2d2d35;
+      --text: #e8e8ed;
+      --muted: #888;
+      --accent: #c9a86c;
+      --accent-hover: #d4b87a;
+      --danger: #c75c5c;
+      --success: #5c9e6b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 12px;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin: 0 0 12px 0;
+      color: var(--accent);
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .search-wrap {
+      flex: 1;
+      min-width: 160px;
+    }
+    .search-wrap label, .barcode-wrap label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--card);
+      color: var(--text);
+      font-size: 1rem;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .barcode-wrap { min-width: 140px; }
+    .btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: var(--accent);
+      color: #1a1a1a;
+      font-weight: 600;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn-outline {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+    .btn-outline:hover { background: rgba(201, 168, 108, 0.15); }
+    .status {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .status.loading { color: var(--accent); }
+    .status.error { color: var(--danger); }
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      background: rgba(0,0,0,0.3);
+      color: var(--muted);
+      font-weight: 600;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr.row-clickable {
+      cursor: pointer;
+    }
+    tr.row-clickable:hover {
+      background: rgba(201, 168, 108, 0.08);
+    }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-width: 400px;
+      width: 100%;
+      padding: 20px;
+    }
+    .modal h2 {
+      margin: 0 0 16px 0;
+      font-size: 1.1rem;
+      color: var(--accent);
+    }
+    .modal .row-info {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 16px;
+      word-break: break-all;
+    }
+    .modal .field {
+      margin-bottom: 12px;
+    }
+    .modal .field label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .modal .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 20px;
+    }
+    .modal .actions .btn { flex: 1; }
+    .modal .save-status {
+      font-size: 0.8rem;
+      margin-top: 8px;
+    }
+    .modal .save-status.ok { color: var(--success); }
+    .modal .save-status.err { color: var(--danger); }
+    /* 바코드 스캔 모달 */
+    .scan-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 101;
+      flex-direction: column;
+    }
+    .scan-overlay.show { display: flex; }
+    #barcode-scanner {
+      flex: 1;
+      min-height: 200px;
+      position: relative;
+      overflow: hidden;
+    }
+    #barcode-scanner video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    #barcode-scanner canvas { display: none; }
+    /* 뷰파인더: 바코드를 맞출 영역 표시 (인식률 향상) */
+    .scan-viewfinder {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 85%;
+      max-width: 320px;
+      height: 120px;
+      border: 3px solid var(--accent);
+      border-radius: 12px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.4);
+      pointer-events: none;
+      box-sizing: border-box;
+    }
+    .scan-viewfinder::after {
+      content: '바코드를 이 안에 맞춰주세요';
+      position: absolute;
+      bottom: -28px;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 0.8rem;
+      color: var(--accent);
+      text-shadow: 0 0 4px #000;
+    }
+    .scan-header {
+      padding: 12px 16px;
+      background: var(--card);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .scan-header span { font-size: 0.9rem; }
+    .scan-result {
+      padding: 12px 16px;
+      background: rgba(92, 158, 107, 0.2);
+      color: var(--success);
+      text-align: center;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div id="cameraNotice" style="display:none; background: rgba(201,168,108,0.2); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.9rem;">
+    📷 <strong>카메라 바코드 스캔</strong>을 쓰려면 파일이 아닌 <strong>웹 주소</strong>로 열어야 합니다.
+    폴더에서 <code>start-server.bat</code>을 더블클릭한 뒤 브라우저에 나온 주소(<code>http://localhost:3000</code> 등)로 접속하세요.
+  </div>
+  <h1>BEAUTY ITEM SEARCH</h1>
+  <div class="toolbar">
+    <div class="search-wrap">
+      <label for="textSearch">상품명 검색 (실시간)</label>
+      <input type="text" id="textSearch" placeholder="상품명 입력...">
+    </div>
+    <div class="barcode-wrap">
+      <label for="barcodeSearch">바코드 (100% 일치)</label>
+      <input type="text" id="barcodeSearch" placeholder="UPC / 바코드" inputmode="numeric">
+    </div>
+    <div style="display: flex; align-items: flex-end; gap: 8px;">
+      <button type="button" class="btn btn-outline" id="btnScanBarcode">📷 바코드 스캔</button>
+      <button type="button" class="btn" id="btnReload">새로고침</button>
+    </div>
+  </div>
+  <div id="status" class="status"></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>A (UPC)</th>
+          <th>B (ITEM)</th>
+          <th>C (PK)</th>
+          <th>D (ULTRA)</th>
+          <th>E (BENS)</th>
+          <th>F (JINNY)</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- 편집 팝업: C,D,E,F 만 수정 -->
+  <div id="editModal" class="modal-overlay">
+    <div class="modal">
+      <h2>행 수정 (C, D, E, F)</h2>
+      <div class="row-info" id="editRowInfo"></div>
+      <input type="hidden" id="editUpc">
+      <div class="field">
+        <label>C (PK)</label>
+        <input type="text" id="editC">
+      </div>
+      <div class="field">
+        <label>D (ULTRA)</label>
+        <input type="text" id="editD">
+      </div>
+      <div class="field">
+        <label>E (BENS)</label>
+        <input type="text" id="editE">
+      </div>
+      <div class="field">
+        <label>F (JINNY)</label>
+        <input type="text" id="editF">
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-outline" id="editCancel">취소</button>
+        <button type="button" class="btn" id="editSave">저장 (시트 반영)</button>
+      </div>
+      <div id="editSaveStatus" class="save-status"></div>
+    </div>
+  </div>
+
+  <!-- 바코드 스캔 화면 -->
+  <div id="scanOverlay" class="scan-overlay">
+    <div class="scan-header">
+      <span>바코드를 프레임에 맞춰주세요</span>
+      <button type="button" class="btn btn-outline" id="btnCloseScan">닫기</button>
+    </div>
+    <div id="barcode-scanner">
+      <div class="scan-viewfinder" aria-hidden="true"></div>
+    </div>
+    <div id="scanResult" class="scan-result" style="display:none;"></div>
+  </div>
+
+  <script>
+    // ========== 설정: 배포한 웹 앱 URL을 여기에 넣으세요 ==========
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxSQlWp73gJ19ThN0ZxpVLH5SQq-Nv8w8rY4qW8Y6BVNTn4wCDRFEASpXnbJHk1HMcf/exec';
+
+    let sheetData = []; // [ [A,B,C,D,E,F,...], ... ]
+    let filteredData = [];
+
+    const statusEl = document.getElementById('status');
+    const tbody = document.getElementById('tbody');
+    const textSearch = document.getElementById('textSearch');
+    const barcodeSearch = document.getElementById('barcodeSearch');
+    const editModal = document.getElementById('editModal');
+    const editUpc = document.getElementById('editUpc');
+    const editRowInfo = document.getElementById('editRowInfo');
+    const editC = document.getElementById('editC');
+    const editD = document.getElementById('editD');
+    const editE = document.getElementById('editE');
+    const editF = document.getElementById('editF');
+    const editSaveStatus = document.getElementById('editSaveStatus');
+    const scanOverlay = document.getElementById('scanOverlay');
+    const scanResultEl = document.getElementById('scanResult');
+
+    function setStatus(msg, type = '') {
+      statusEl.textContent = msg;
+      statusEl.className = 'status ' + type;
+    }
+
+    async function loadSheet() {
+      setStatus('시트 불러오는 중...', 'loading');
+      try {
+        const res = await fetch(SCRIPT_URL);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) throw new Error('데이터 없음');
+        sheetData = data;
+        runFilter();
+        setStatus('로드 완료: ' + (sheetData.length - 1) + '행 (헤더 제외)');
+      } catch (e) {
+        setStatus('로드 실패: ' + e.message + '. SCRIPT_URL을 확인하고 시트를 "배포 > 웹 앱"으로 배포했는지 확인하세요.', 'error');
+        sheetData = [];
+        filteredData = [];
+        renderTable([]);
+      }
+    }
+
+    function runFilter() {
+      const text = (textSearch.value || '').trim().toLowerCase();
+      const barcode = (barcodeSearch.value || '').trim();
+
+      if (barcode) {
+        // 바코드 입력이 있으면 100% 일치만
+        filteredData = sheetData.slice(1).filter(row => String(row[0] || '').trim() === barcode);
+      } else {
+        // 글자 검색: 실시간 부분 일치 (A UPC, B ITEM 등)
+        if (!text) {
+          filteredData = sheetData.slice(1);
+        } else {
+          filteredData = sheetData.slice(1).filter(row => {
+            const upc = String(row[0] || '');
+            const item = String(row[1] || '');
+            return upc.toLowerCase().includes(text) || item.toLowerCase().includes(text);
+          });
+        }
+      }
+      renderTable(filteredData);
+      setStatus(
+        barcode
+          ? '바코드 100% 일치: ' + filteredData.length + '건'
+          : '검색 결과: ' + filteredData.length + '건'
+      );
+    }
+
+    function renderTable(rows) {
+      tbody.innerHTML = '';
+      rows.forEach((row, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = 'row-clickable';
+        const a = row[0] ?? '';
+        const b = row[1] ?? '';
+        const c = row[2] ?? '';
+        const d = row[3] ?? '';
+        const e = row[4] ?? '';
+        const f = row[5] ?? '';
+        tr.innerHTML =
+          '<td>' + escapeHtml(a) + '</td><td>' + escapeHtml(b) + '</td><td>' +
+          escapeHtml(c) + '</td><td>' + escapeHtml(d) + '</td><td>' +
+          escapeHtml(e) + '</td><td>' + escapeHtml(f) + '</td>';
+        tr.dataset.upc = a;
+        tr.dataset.row = JSON.stringify([a, b, c, d, e, f]);
+        tr.addEventListener('click', () => openEditModal(row));
+        tbody.appendChild(tr);
+      });
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function openEditModal(row) {
+      const [a, b, c, d, e, f] = row;
+      editUpc.value = a;
+      editRowInfo.textContent = 'UPC: ' + a + ' | ' + (b || '').substring(0, 50) + (b && b.length > 50 ? '…' : '');
+      editC.value = c ?? '';
+      editD.value = d ?? '';
+      editE.value = e ?? '';
+      editF.value = f ?? '';
+      editSaveStatus.textContent = '';
+      editModal.classList.add('show');
+    }
+
+    function closeEditModal() {
+      editModal.classList.remove('show');
+    }
+
+    document.getElementById('editCancel').addEventListener('click', closeEditModal);
+    editModal.addEventListener('click', (ev) => { if (ev.target === editModal) closeEditModal(); });
+
+    document.getElementById('editSave').addEventListener('click', async () => {
+      const upc = editUpc.value.trim();
+      const payload = {
+        upc,
+        pk: editC.value,
+        ultra: editD.value,
+        bens: editE.value,
+        jinny: editF.value
+      };
+      editSaveStatus.textContent = '저장 중...';
+      editSaveStatus.className = 'save-status';
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json().catch(() => ({}));
+        const localRow = sheetData.find(r => String(r[0]).trim() === upc);
+        if (localRow) {
+          localRow[2] = payload.pk;
+          localRow[3] = payload.ultra;
+          localRow[4] = payload.bens;
+          localRow[5] = payload.jinny;
+        }
+        runFilter();
+        if (json.ok) {
+          editSaveStatus.textContent = '구글 시트에 저장되었습니다.';
+          editSaveStatus.className = 'save-status ok';
+        } else {
+          editSaveStatus.textContent = json.error || '저장 실패';
+          editSaveStatus.className = 'save-status err';
+        }
+      } catch (err) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = SCRIPT_URL;
+        form.target = 'saveFrame';
+        ['upc','pk','ultra','bens','jinny'].forEach(k => {
+          const i = document.createElement('input');
+          i.name = k;
+          i.value = payload[k] ?? '';
+          form.appendChild(i);
+        });
+        let frame = document.getElementById('saveFrame');
+        if (!frame) {
+          frame = document.createElement('iframe');
+          frame.name = 'saveFrame';
+          frame.id = 'saveFrame';
+          frame.style.display = 'none';
+          document.body.appendChild(frame);
+        }
+        document.body.appendChild(form);
+        form.submit();
+        form.remove();
+        const localRow = sheetData.find(r => String(r[0]).trim() === upc);
+        if (localRow) {
+          localRow[2] = payload.pk;
+          localRow[3] = payload.ultra;
+          localRow[4] = payload.bens;
+          localRow[5] = payload.jinny;
+        }
+        runFilter();
+        editSaveStatus.textContent = '저장 요청을 보냈습니다. 구글 시트에서 확인하세요.';
+        editSaveStatus.className = 'save-status ok';
+      }
+    });
+
+    textSearch.addEventListener('input', () => {
+      barcodeSearch.value = '';
+      runFilter();
+    });
+    barcodeSearch.addEventListener('input', () => {
+      if (barcodeSearch.value.trim()) textSearch.value = '';
+      runFilter();
+    });
+
+    document.getElementById('btnReload').addEventListener('click', loadSheet);
+
+    // ---------- 바코드 스캔 (QuaggaJS) - 폰 인식률 개선 ----------
+    let scanActive = false;
+    let confirmCode = '';
+    let confirmCount = 0;
+    let confirmResetTimer = 0;
+
+    function startBarcodeScan() {
+      scanOverlay.classList.add('show');
+      scanResultEl.style.display = 'none';
+      scanResultEl.textContent = '';
+      confirmCode = '';
+      confirmCount = 0;
+      if (confirmResetTimer) clearTimeout(confirmResetTimer);
+
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const constraints = {
+        facingMode: 'environment',
+        width: { min: 640, ideal: 1280 },
+        height: { min: 480, ideal: 720 }
+      };
+
+      const config = {
+        inputStream: {
+          name: 'Live',
+          type: 'LiveStream',
+          target: document.getElementById('barcode-scanner'),
+          constraints: constraints,
+          area: { top: '22%', right: '8%', bottom: '22%', left: '8%' }
+        },
+        locator: { patchSize: 'large', halfSample: false },
+        numOfWorkers: 4,
+        decoder: {
+          readers: ['upc_reader', 'upc_e_reader', 'ean_reader', 'ean_8_reader', 'code_128_reader', 'code_39_reader'],
+          multiple: false
+        },
+        locate: true
+      };
+
+      Quagga.init(config, (err) => {
+        if (err) {
+          scanResultEl.style.display = 'block';
+          scanResultEl.style.background = 'rgba(199,92,92,0.2)';
+          scanResultEl.style.color = 'var(--danger)';
+          scanResultEl.textContent = '카메라 오류: ' + (err.message || err);
+          return;
+        }
+        scanActive = true;
+        Quagga.start();
+      });
+
+      Quagga.onDetected((result) => {
+        if (!scanActive) return;
+        const code = String(result.codeResult.code || '').trim();
+        if (!code || code.length < 4) return;
+
+        if (code === confirmCode) {
+          confirmCount++;
+          if (confirmCount >= 2) acceptScannedCode(code);
+        } else {
+          confirmCode = code;
+          confirmCount = 1;
+        }
+        if (confirmResetTimer) clearTimeout(confirmResetTimer);
+        confirmResetTimer = setTimeout(() => { confirmCode = ''; confirmCount = 0; }, 1200);
+      });
+    }
+
+    function acceptScannedCode(code) {
+      Quagga.stop();
+      scanActive = false;
+      if (navigator.vibrate) navigator.vibrate(100);
+      scanResultEl.style.display = 'block';
+      scanResultEl.style.background = 'rgba(92, 158, 107, 0.2)';
+      scanResultEl.style.color = 'var(--success)';
+      scanResultEl.textContent = '인식: ' + code;
+      barcodeSearch.value = code;
+      runFilter();
+      setTimeout(() => closeBarcodeScan(), 1500);
+    }
+
+    function closeBarcodeScan() {
+      scanActive = false;
+      Quagga.stop();
+      if (typeof Quagga.detached !== 'undefined') {
+        try { Quagga.detached(); } catch (_) {}
+      }
+      scanOverlay.classList.remove('show');
+    }
+
+    document.getElementById('btnScanBarcode').addEventListener('click', startBarcodeScan);
+    document.getElementById('btnCloseScan').addEventListener('click', closeBarcodeScan);
+
+    // file:// 로 열렸을 때 카메라 안내 표시
+    if (window.location.protocol === 'file:') {
+      document.getElementById('cameraNotice').style.display = 'block';
+    }
+
+    // 페이지 로드 시 자동 로드
+    loadSheet();
+  </script>
+</body>
+</html>
