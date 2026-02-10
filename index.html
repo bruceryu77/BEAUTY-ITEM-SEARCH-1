@@ -578,6 +578,8 @@
       Quagga.stop();
       scanActive = false;
       if (navigator.vibrate) navigator.vibrate(100);
+      // 첫 번째 숫자 제외하고 검색 (바코드 첫 자리 체크디지트 등 제외)
+      var searchCode = code.length > 1 ? code.slice(1) : code;
       scanResultEl.style.display = 'block';
       scanResultEl.style.background = 'rgba(92, 158, 107, 0.2)';
       scanResultEl.style.color = 'var(--success)';
@@ -609,3 +611,4 @@
   </script>
 </body>
 </html>
+
