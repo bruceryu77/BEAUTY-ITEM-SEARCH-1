@@ -520,7 +520,7 @@
     let confirmCount = 0;
     let firstDetectedTime = 0;  // 같은 코드를 처음 읽은 시각
     let confirmResetTimer = 0;
-    var SCAN_MIN_DELAY_MS = 600; // 이 시간(ms) 이상 같은 바코드가 유지돼야 채택 (너무 빨리 읽히는 오인식 방지)
+    var SCAN_MIN_DELAY_MS = 500; // 이 시간(ms) 이상 같은 바코드가 유지돼야 채택 (너무 빨리 읽히는 오인식 방지)
 
     function startBarcodeScan() {
       scanOverlay.classList.add('show');
@@ -625,3 +625,4 @@
   </script>
 </body>
 </html>
+
