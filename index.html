@@ -336,6 +336,12 @@
       statusEl.className = 'status ' + type;
     }
 
+    // 구글 시트에는 앞의 0이 빠진 숫자로 저장돼 있으므로, 앞의 0을 제거한 값으로 비교
+    function normalizeBarcode(s) {
+      var t = String(s || '').trim().replace(/^0+/, '');
+      return t === '' ? '0' : t;
+    }
+
     async function loadSheet() {
       setStatus('시트 불러오는 중...', 'loading');
       try {
@@ -359,8 +365,9 @@
       const barcode = (barcodeSearch.value || '').trim();
 
       if (barcode) {
-        // 바코드 입력이 있으면 100% 일치만
-        filteredData = sheetData.slice(1).filter(row => String(row[0] || '').trim() === barcode);
+        // 바코드: 앞의 0은 무시하고 비교 (시트에 0 없이 저장된 경우 대응)
+        var norm = normalizeBarcode(barcode);
+        filteredData = sheetData.slice(1).filter(row => normalizeBarcode(row[0]) === norm);
       } else {
         // 글자 검색: 실시간 부분 일치 (A UPC, B ITEM 등)
         if (!text) {
@@ -578,13 +585,13 @@
       Quagga.stop();
       scanActive = false;
       if (navigator.vibrate) navigator.vibrate(100);
-      // 첫 번째 숫자 제외하고 검색 (바코드 첫 자리 체크디지트 등 제외)
-      var searchCode = code.length > 1 ? code.slice(1) : code;
+      // 바코드는 0으로 시작해도 시트에는 0 없이 저장돼 있으므로, 앞의 0 제거한 값으로 검색
+      var searchCode = normalizeBarcode(code);
       scanResultEl.style.display = 'block';
       scanResultEl.style.background = 'rgba(92, 158, 107, 0.2)';
       scanResultEl.style.color = 'var(--success)';
-      scanResultEl.textContent = '인식: ' + code;
-      barcodeSearch.value = code;
+      scanResultEl.textContent = '인식: ' + code + ' → 검색: ' + searchCode;
+      barcodeSearch.value = searchCode;
       runFilter();
       setTimeout(() => closeBarcodeScan(), 1500);
     }
@@ -611,4 +618,3 @@
   </script>
 </body>
 </html>
-
