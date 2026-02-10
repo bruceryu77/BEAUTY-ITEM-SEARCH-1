@@ -518,7 +518,9 @@
     let scanActive = false;
     let confirmCode = '';
     let confirmCount = 0;
+    let firstDetectedTime = 0;  // 같은 코드를 처음 읽은 시각
     let confirmResetTimer = 0;
+    var SCAN_MIN_DELAY_MS = 600; // 이 시간(ms) 이상 같은 바코드가 유지돼야 채택 (너무 빨리 읽히는 오인식 방지)
 
     function startBarcodeScan() {
       scanOverlay.classList.add('show');
@@ -526,6 +528,7 @@
       scanResultEl.textContent = '';
       confirmCode = '';
       confirmCount = 0;
+      firstDetectedTime = 0;
       if (confirmResetTimer) clearTimeout(confirmResetTimer);
 
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -569,15 +572,19 @@
         const code = String(result.codeResult.code || '').trim();
         if (!code || code.length < 4) return;
 
+        var now = Date.now();
         if (code === confirmCode) {
-          confirmCount++;
-          if (confirmCount >= 2) acceptScannedCode(code);
+          // 같은 코드가 SCAN_MIN_DELAY_MS 이상 유지된 뒤 다시 읽혔을 때만 채택 (오인식 감소)
+          if (now - firstDetectedTime >= SCAN_MIN_DELAY_MS) {
+            acceptScannedCode(code);
+          }
         } else {
           confirmCode = code;
           confirmCount = 1;
+          firstDetectedTime = now;
         }
         if (confirmResetTimer) clearTimeout(confirmResetTimer);
-        confirmResetTimer = setTimeout(() => { confirmCode = ''; confirmCount = 0; }, 1200);
+        confirmResetTimer = setTimeout(() => { confirmCode = ''; confirmCount = 0; firstDetectedTime = 0; }, 1500);
       });
     }
 
