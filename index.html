@@ -242,7 +242,7 @@
       <input type="text" id="textSearch" placeholder="상품명 입력...">
     </div>
     <div class="barcode-wrap">
-      <label for="barcodeSearch">바코드 (첫/끝자리 제외, 80% 이상 일치)</label>
+      <label for="barcodeSearch">바코드 (첫/끝자리 제외, 90% 이상 일치)</label>
       <input type="text" id="barcodeSearch" placeholder="UPC / 바코드" inputmode="numeric">
     </div>
     <div style="display: flex; align-items: flex-end; gap: 8px;">
@@ -391,7 +391,7 @@
           return { row: row, ratio: r };
         });
         filteredData = rowsWithRatio
-          .filter(function(x) { return x.ratio >= 0.8; })
+          .filter(function(x) { return x.ratio >= 0.9; })
           .sort(function(a, b) { return b.ratio - a.ratio; })
           .map(function(x) { return x.row; });
       } else {
@@ -409,7 +409,7 @@
       renderTable(filteredData);
       setStatus(
         barcode
-          ? '바코드 80% 이상 일치: ' + filteredData.length + '건'
+          ? '바코드 90% 이상 일치: ' + filteredData.length + '건'
           : '검색 결과: ' + filteredData.length + '건'
       );
     }
@@ -651,6 +651,7 @@
   </script>
 </body>
 </html>
+
 
 
 
