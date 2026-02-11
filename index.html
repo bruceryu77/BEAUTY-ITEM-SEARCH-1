@@ -242,7 +242,7 @@
       <input type="text" id="textSearch" placeholder="상품명 입력...">
     </div>
     <div class="barcode-wrap">
-      <label for="barcodeSearch">바코드 (100% 일치)</label>
+      <label for="barcodeSearch">바코드 (첫/끝자리 제외, 80% 이상 일치)</label>
       <input type="text" id="barcodeSearch" placeholder="UPC / 바코드" inputmode="numeric">
     </div>
     <div style="display: flex; align-items: flex-end; gap: 8px;">
@@ -336,10 +336,30 @@
       statusEl.className = 'status ' + type;
     }
 
-    // 구글 시트에는 앞의 0이 빠진 숫자로 저장돼 있으므로, 앞의 0을 제거한 값으로 비교
+    // 구글 시트에는 앞의 0이 빠진 숫자로 저장돼 있으므로, 앞의 0을 제거한 값
     function normalizeBarcode(s) {
       var t = String(s || '').trim().replace(/^0+/, '');
       return t === '' ? '0' : t;
+    }
+
+    // 바코드 매칭용: 1) 앞의 0 제거  2) 맨 마지막 숫자 제거
+    function normalizeBarcodeForMatch(s) {
+      var t = String(s || '').trim().replace(/^0+/, '');
+      if (t === '' || t.length <= 1) return t;
+      return t.slice(0, -1);
+    }
+
+    // 두 바코드의 숫자 일치율 반환 (0~1). 위치별로 같은 숫자 비율. 길이 다르면 max(len) 기준.
+    function barcodeMatchRatio(inputBarcode, sheetBarcode) {
+      var a = normalizeBarcodeForMatch(inputBarcode);
+      var b = normalizeBarcodeForMatch(sheetBarcode);
+      if (a.length === 0 && b.length === 0) return 1;
+      if (a.length === 0 || b.length === 0) return 0;
+      var matches = 0;
+      for (var i = 0; i < Math.min(a.length, b.length); i++) {
+        if (a[i] === b[i]) matches++;
+      }
+      return matches / Math.max(a.length, b.length);
     }
 
     async function loadSheet() {
@@ -365,9 +385,15 @@
       const barcode = (barcodeSearch.value || '').trim();
 
       if (barcode) {
-        // 바코드: 앞의 0은 무시하고 비교 (시트에 0 없이 저장된 경우 대응)
-        var norm = normalizeBarcode(barcode);
-        filteredData = sheetData.slice(1).filter(row => normalizeBarcode(row[0]) === norm);
+        // 바코드: 1) 앞 0 무시, 2) 맨 마지막 숫자 무시, 3) 나머지 숫자로 80% 이상 일치하면 표시
+        var rowsWithRatio = sheetData.slice(1).map(function(row) {
+          var r = barcodeMatchRatio(barcode, row[0]);
+          return { row: row, ratio: r };
+        });
+        filteredData = rowsWithRatio
+          .filter(function(x) { return x.ratio >= 0.8; })
+          .sort(function(a, b) { return b.ratio - a.ratio; })
+          .map(function(x) { return x.row; });
       } else {
         // 글자 검색: 실시간 부분 일치 (A UPC, B ITEM 등)
         if (!text) {
@@ -383,7 +409,7 @@
       renderTable(filteredData);
       setStatus(
         barcode
-          ? '바코드 100% 일치: ' + filteredData.length + '건'
+          ? '바코드 80% 이상 일치: ' + filteredData.length + '건'
           : '검색 결과: ' + filteredData.length + '건'
       );
     }
@@ -625,4 +651,6 @@
   </script>
 </body>
 </html>
+
+
 
